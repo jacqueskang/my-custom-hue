@@ -85,29 +85,38 @@ else
   echo "$LIGHTS"
 fi
 
-# Ask user to select a light by ID
-read -p "Please enter the ID of the light you want to control: " LIGHT_ID
-SELECTED_LIGHT=$(echo "$LIGHTS" | grep "^$LIGHT_ID: ")
-if [ -z "$SELECTED_LIGHT" ]; then
-  echo "Invalid light ID selected."
-  exit 1
-else
-  echo "Selected light: $SELECTED_LIGHT"
-fi
+# Ask user to select lights by ID (comma-separated)
+read -p "Please enter the IDs of the lights you want to control (comma-separated): " LIGHT_IDS
+IFS=',' read -r -a LIGHT_ID_ARRAY <<< "$LIGHT_IDS"
 
-# Turn on the selected light
-TURN_ON_RESPONSE=$(curl -s -k -X PUT -d '{"on":true}' "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state")
-if echo "$TURN_ON_RESPONSE" | grep -q '"success"'; then
-  echo "Light $LIGHT_ID turned on successfully."
-else
-  echo "Failed to turn on light $LIGHT_ID."
-fi
+# Validate selected lights
+for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
+  SELECTED_LIGHT=$(echo "$LIGHTS" | grep "^$LIGHT_ID: ")
+  if [ -z "$SELECTED_LIGHT" ]; then
+    echo "Invalid light ID selected: $LIGHT_ID"
+    exit 1
+  else
+    echo "Selected light: $SELECTED_LIGHT"
+  fi
+done
+
+# Turn on the selected lights
+for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
+  TURN_ON_RESPONSE=$(curl -s -k -X PUT -d '{"on":true}' "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state")
+  if echo "$TURN_ON_RESPONSE" | grep -q '"success"'; then
+    echo "Light $LIGHT_ID turned on successfully."
+  else
+    echo "Failed to turn on light $LIGHT_ID."
+  fi
+done
 
 # Gradually change color according to the HUE spectrum over 10 seconds
 echo "Cycling through colors. Press any key to stop."
 while true; do
   for HUE in {0..65535..6554}; do
-    curl -s -k -X PUT -d "{\"hue\":$HUE, \"sat\":254}" "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state" > /dev/null
+    for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
+      curl -s -k -X PUT -d "{\"hue\":$HUE, \"sat\":254}" "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state" > /dev/null
+    done
     sleep 0.1
     if read -t 0.1 -n 1; then
       break 2
