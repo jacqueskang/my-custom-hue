@@ -110,18 +110,50 @@ for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
   fi
 done
 
-# Gradually change color according to the HUE spectrum over 10 seconds
-echo "Cycling through colors. Press any key to stop."
-while true; do
-  for HUE in {0..65535..6554}; do
-    for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
-      curl -s -k -X PUT -d "{\"hue\":$HUE, \"sat\":254}" "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state" > /dev/null
+# Ask user to select the style
+echo "Select the light style:"
+echo "1. Spectrum"
+echo "2. Police"
+read -p "Enter the number of the style you want to use: " STYLE
+
+# Apply the selected style
+case $STYLE in
+  1)
+    echo "Cycling through colors (Spectrum). Press any key to stop."
+    while true; do
+      for HUE in {0..65535..6554}; do
+        for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
+          curl -s -k -X PUT -d "{\"hue\":$HUE, \"sat\":254}" "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state" > /dev/null
+        done
+        sleep 0.1
+        if read -t 0.1 -n 1; then
+          break 2
+        fi
+      done
     done
-    sleep 0.1
-    if read -t 0.1 -n 1; then
-      break 2
-    fi
-  done
-done
+    ;;
+  2)
+    echo "Cycling through colors (Police). Press any key to stop."
+    while true; do
+      for COLOR in "red" "blue"; do
+        case $COLOR in
+          "red") HUE=0 ;;
+          "blue") HUE=46920 ;;
+        esac
+        for LIGHT_ID in "${LIGHT_ID_ARRAY[@]}"; do
+          curl -s -k -X PUT -d "{\"hue\":$HUE, \"sat\":254}" "https://$HUE_BRIDGE_IP/api/$USERNAME/lights/$LIGHT_ID/state" > /dev/null
+        done
+        sleep 0.5
+        if read -t 0.1 -n 1; then
+          break 2
+        fi
+      done
+    done
+    ;;
+  *)
+    echo "Invalid style selected."
+    exit 1
+    ;;
+esac
 
 # ...existing code...
